@@ -1,4 +1,4 @@
-# Vegeta [![Build Status](https://secure.travis-ci.org/tsenart/vegeta.png)](http://travis-ci.org/tsenart/vegeta)
+# Vegeta [![Build Status](https://secure.travis-ci.org/masahide/vegeta.png)](http://travis-ci.org/masahide/vegeta)
 
 Vegeta is a versatile HTTP load testing tool built out of a need to drill
 HTTP services with a constant request rate.
@@ -8,7 +8,7 @@ It can be used both as a command line utility and a library.
 
 ## Install
 ### Pre-compiled executables
-Get them [here](http://github.com/tsenart/vegeta/releases).
+Get them [here](http://github.com/masahide/vegeta/releases).
 
 ### Homebrew on Mac OS X
 You can install Vegeta using the [Homebrew](https://github.com/Homebrew/homebrew/) package manager on Mac OS X:
@@ -20,8 +20,8 @@ $ brew update && brew install vegeta
 You need go installed and `GOBIN` in your `PATH`. Once that is done, run the
 command:
 ```shell
-$ go get github.com/tsenart/vegeta
-$ go install github.com/tsenart/vegeta
+$ go get github.com/masahide/vegeta
+$ go install github.com/masahide/vegeta
 ```
 
 ## Usage manual
@@ -355,7 +355,7 @@ import (
   "fmt"
   "time"
 
-  vegeta "github.com/tsenart/vegeta/lib"
+  vegeta "github.com/masahide/vegeta/lib"
 )
 
 func main() {

@@ -15,7 +15,7 @@ import (
 	"strings"
 	"time"
 
-	vegeta "github.com/tsenart/vegeta/lib"
+	vegeta "github.com/masahide/vegeta/lib"
 )
 
 func attackCmd() command {
