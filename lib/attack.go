@@ -1,30 +1,30 @@
 package vegeta
 
 import (
-	"crypto/tls"
-	"fmt"
+	"database/sql"
 	"io"
 	"io/ioutil"
-	"net"
-	"net/http"
+	"log"
 	"strings"
 	"sync"
 	"time"
+
+	_ "github.com/go-sql-driver/mysql"
 )
 
 // Attacker is an attack executor which wraps an http.Client
 type Attacker struct {
-	dialer    *net.Dialer
-	client    http.Client
-	stopch    chan struct{}
-	workers   uint64
-	redirects int
+	//client       http.Client
+	cnn          *sql.DB
+	stopch       chan struct{}
+	workers      uint64
+	redirects    int
+	maxIdleConns int
+	maxOpenConns int
+	dsn          string
 }
 
 const (
-	// DefaultRedirects is the default number of times an Attacker follows
-	// redirects.
-	DefaultRedirects = 10
 	// DefaultTimeout is the default amount of time an Attacker waits for a request
 	// before it times out.
 	DefaultTimeout = 30 * time.Second
@@ -38,34 +38,23 @@ const (
 )
 
 var (
-	// DefaultLocalAddr is the default local IP address an Attacker uses.
-	DefaultLocalAddr = net.IPAddr{IP: net.IPv4zero}
-	// DefaultTLSConfig is the default tls.Config an Attacker uses.
-	DefaultTLSConfig = &tls.Config{InsecureSkipVerify: true}
+// DefaultTLSConfig is the default tls.Config an Attacker uses.
 )
 
 // NewAttacker returns a new Attacker with default options which are overridden
 // by the optionally provided opts.
 func NewAttacker(opts ...func(*Attacker)) *Attacker {
+	var err error
 	a := &Attacker{stopch: make(chan struct{}), workers: DefaultWorkers}
-	a.dialer = &net.Dialer{
-		LocalAddr: &net.TCPAddr{IP: DefaultLocalAddr.IP, Zone: DefaultLocalAddr.Zone},
-		KeepAlive: 30 * time.Second,
-		Timeout:   DefaultTimeout,
-	}
-	a.client = http.Client{
-		Transport: &http.Transport{
-			Proxy: http.ProxyFromEnvironment,
-			Dial:  a.dialer.Dial,
-			ResponseHeaderTimeout: DefaultTimeout,
-			TLSClientConfig:       DefaultTLSConfig,
-			TLSHandshakeTimeout:   10 * time.Second,
-			MaxIdleConnsPerHost:   DefaultConnections,
-		},
-	}
 	for _, opt := range opts {
 		opt(a)
 	}
+	a.cnn, err = sql.Open("mysql", a.dsn)
+	if err != nil {
+		log.Fatal(err)
+	}
+	a.cnn.SetMaxIdleConns(a.maxIdleConns)
+	a.cnn.SetMaxOpenConns(a.maxOpenConns)
 	return a
 }
 
@@ -76,70 +65,15 @@ func Workers(n uint64) func(*Attacker) {
 	return func(a *Attacker) { a.workers = n }
 }
 
-// Connections returns a functional option which sets the number of maximum idle
-// open connections per target host.
-func Connections(n int) func(*Attacker) {
-	return func(a *Attacker) {
-		tr := a.client.Transport.(*http.Transport)
-		tr.MaxIdleConnsPerHost = n
-	}
+func Dsn(s string) func(*Attacker) {
+	return func(a *Attacker) { a.dsn = s }
 }
 
-// Redirects returns a functional option which sets the maximum
-// number of redirects an Attacker will follow.
-func Redirects(n int) func(*Attacker) {
-	return func(a *Attacker) {
-		a.redirects = n
-		a.client.CheckRedirect = func(_ *http.Request, via []*http.Request) error {
-			if len(via) > n {
-				return fmt.Errorf("stopped after %d redirects", n)
-			}
-			return nil
-		}
-	}
+func SetMaxIdleConns(n int) func(*Attacker) {
+	return func(a *Attacker) { a.maxIdleConns = n }
 }
-
-// Timeout returns a functional option which sets the maximum amount of time
-// an Attacker will wait for a request to be responded to.
-func Timeout(d time.Duration) func(*Attacker) {
-	return func(a *Attacker) {
-		tr := a.client.Transport.(*http.Transport)
-		tr.ResponseHeaderTimeout = d
-		a.dialer.Timeout = d
-		tr.Dial = a.dialer.Dial
-	}
-}
-
-// LocalAddr returns a functional option which sets the local address
-// an Attacker will use with its requests.
-func LocalAddr(addr net.IPAddr) func(*Attacker) {
-	return func(a *Attacker) {
-		tr := a.client.Transport.(*http.Transport)
-		a.dialer.LocalAddr = &net.TCPAddr{IP: addr.IP, Zone: addr.Zone}
-		tr.Dial = a.dialer.Dial
-	}
-}
-
-// KeepAlive returns a functional option which toggles KeepAlive
-// connections on the dialer and transport.
-func KeepAlive(keepalive bool) func(*Attacker) {
-	return func(a *Attacker) {
-		tr := a.client.Transport.(*http.Transport)
-		tr.DisableKeepAlives = !keepalive
-		if !keepalive {
-			a.dialer.KeepAlive = 0
-			tr.Dial = a.dialer.Dial
-		}
-	}
-}
-
-// TLSConfig returns a functional option which sets the *tls.Config for a
-// Attacker to use with its requests.
-func TLSConfig(c *tls.Config) func(*Attacker) {
-	return func(a *Attacker) {
-		tr := a.client.Transport.(*http.Transport)
-		tr.TLSClientConfig = c
-	}
+func SetMaxOpenConns(n int) func(*Attacker) {
+	return func(a *Attacker) { a.maxOpenConns = n }
 }
 
 // Attack reads its Targets from the passed Targeter and attacks them at
@@ -205,12 +139,12 @@ func (a *Attacker) hit(tr Targeter, tm time.Time) *Result {
 		return &res
 	}
 
-	req, err := tgt.Request()
+	req, err := tgt.Query()
 	if err != nil {
 		return &res
 	}
 
-	r, err := a.client.Do(req)
+	r, err := a.cnn.Query(req)
 	if err != nil {
 		// ignore redirect errors when the user set --redirects=NoFollow
 		if a.redirects == NoFollow && strings.Contains(err.Error(), "stopped after") {
@@ -218,7 +152,6 @@ func (a *Attacker) hit(tr Targeter, tm time.Time) *Result {
 		}
 		return &res
 	}
-	defer r.Body.Close()
 
 	in, err := io.Copy(ioutil.Discard, r.Body)
 	if err != nil {
