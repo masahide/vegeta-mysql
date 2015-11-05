@@ -80,11 +80,10 @@ var Version = "???"
 
 const examples = `
 examples:
-  echo "GET http://localhost/" | vegeta attack -duration=5s | tee results.bin | vegeta report
-  vegeta attack -targets=targets.txt > results.bin
-  vegeta report -inputs=results.bin -reporter=json > metrics.json
-  cat results.bin | vegeta report -reporter=plot > plot.html
-  cat results.bin | vegeta report -reporter="hist[0,100ms,200ms,300ms]"
+  vegeta-mysql attack -dsn "user:pass@tcp(localhost:3306)/hostname" -body sql.txt -duration=60s | tee results.bin | vegeta-mysql report
+  vegeta-mysql report -inputs=results.bin -reporter=json > metrics.json
+  cat results.bin | vegeta-mysql report -reporter=plot > plot.html
+  cat results.bin | vegeta-mysql report -reporter="hist[0,100ms,200ms,300ms]"
 `
 
 type command struct {

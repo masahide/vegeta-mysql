@@ -20,41 +20,54 @@ $ go install github.com/masahide/vegeta-mysql
 
 ## Usage manual
 ```shell
-Usage: vegeta-mysql [global flags] <command> [command flags]
+Usage: vegeta [global flags] <command> [command flags]
 
 global flags:
-  -cpus=8: Number of CPUs to use
-  -profile="": Enable profiling of [cpu, heap]
-  -version=false: Print version and exit
+  -cpus int
+        Number of CPUs to use (default 24)
+  -profile string
+        Enable profiling of [cpu, heap]
+  -version
+        Print version and exit
 
 attack command:
-  -body="": Requests body file
-  -cert="": x509 Certificate file
-  -connections=10000: Max open idle connections per target host
-  -duration=10s: Duration of the test
-  -header=: Request header
-  -keepalive=true: Use persistent connections
-  -laddr=0.0.0.0: Local IP address
-  -lazy=false: Read targets lazily
-  -output="stdout": Output file
-  -rate=50: Requests per second
-  -redirects=10: Number of redirects to follow. -1 will not follow but marks as success
-  -targets="stdin": Targets file
-  -timeout=30s: Requests timeout
-  -workers=10: Initial number of workers
+  -body string
+        Requests body file
+  -dsn string
+        Data Source Name has a common format (default "password@protocol(address)/dbname?param=value")
+  -duration duration
+        Duration of the test (default 10s)
+  -maxIdleConns int
+        Max open idle connections per target host (default 10000)
+  -maxOpenConns int
+        Max open connections per target host (default 10000)
+  -output string
+        Output file (default "stdout")
+  -rate uint
+        Requests per second (default 50)
+  -timeout duration
+        Requests timeout (default 30s)
+  -workers uint
+        Initial number of workers (default 10)
 
 report command:
-  -inputs="stdin": Input files (comma separated)
-  -output="stdout": Output file
-  -reporter="text": Reporter [text, json, plot, hist[buckets]]
+  -inputs string
+        Input files (comma separated) (default "stdin")
+  -output string
+        Output file (default "stdout")
+  -reporter string
+        Reporter [text, json, plot, hist[buckets]] (default "text")
 
 dump command:
-  -dumper="json": Dumper [json, csv]
-  -inputs="stdin": Input files (comma separated)
-  -output="stdout": Output file
+  -dumper string
+        Dumper [json, csv] (default "json")
+  -inputs string
+        Input files (comma separated) (default "stdin")
+  -output string
+        Output file (default "stdout")
 
 examples:
-  vegeta-mysql attack -dsn "user:pass@/hostname" -body sql.txt -duration=60s | tee results.bin | vegeta-mysql report
+  vegeta-mysql attack -dsn "user:pass@tcp(localhost:3306)/hostname" -body sql.txt -duration=60s | tee results.bin | vegeta-mysql report
   vegeta-mysql report -inputs=results.bin -reporter=json > metrics.json
   cat results.bin | vegeta-mysql report -reporter=plot > plot.html
   cat results.bin | vegeta-mysql report -reporter="hist[0,100ms,200ms,300ms]"
