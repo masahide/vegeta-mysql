@@ -6,7 +6,7 @@ import (
 	"io"
 	"strings"
 
-	vegeta "github.com/masahide/vegeta/lib"
+	vegeta "github.com/masahide/vegeta-mysql/lib"
 )
 
 func dumpCmd() command {

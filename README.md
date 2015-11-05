@@ -8,25 +8,19 @@ It can be used both as a command line utility and a library.
 
 ## Install
 ### Pre-compiled executables
-Get them [here](http://github.com/masahide/vegeta/releases).
-
-### Homebrew on Mac OS X
-You can install Vegeta using the [Homebrew](https://github.com/Homebrew/homebrew/) package manager on Mac OS X:
-```shell
-$ brew update && brew install vegeta
-```
+Get them [here](http://github.com/masahide/vegeta-mysql/releases).
 
 ### Source
 You need go installed and `GOBIN` in your `PATH`. Once that is done, run the
 command:
 ```shell
-$ go get github.com/masahide/vegeta
-$ go install github.com/masahide/vegeta
+$ go get github.com/masahide/vegeta-mysql
+$ go install github.com/masahide/vegeta-mysql
 ```
 
 ## Usage manual
 ```shell
-Usage: vegeta [global flags] <command> [command flags]
+Usage: vegeta-mysql [global flags] <command> [command flags]
 
 global flags:
   -cpus=8: Number of CPUs to use
@@ -60,11 +54,10 @@ dump command:
   -output="stdout": Output file
 
 examples:
-  echo "GET http://localhost/" | vegeta attack -duration=5s | tee results.bin | vegeta report
-  vegeta attack -targets=targets.txt > results.bin
-  vegeta report -inputs=results.bin -reporter=json > metrics.json
-  cat results.bin | vegeta report -reporter=plot > plot.html
-  cat results.bin | vegeta report -reporter="hist[0,100ms,200ms,300ms]"
+  vegeta-mysql attack -dsn "user:pass@/hostname" -body sql.txt -duration=60s | tee results.bin | vegeta-mysql report
+  vegeta-mysql report -inputs=results.bin -reporter=json > metrics.json
+  cat results.bin | vegeta-mysql report -reporter=plot > plot.html
+  cat results.bin | vegeta-mysql report -reporter="hist[0,100ms,200ms,300ms]"
 ```
 
 #### -cpus
@@ -73,106 +66,29 @@ It defaults to the amount of CPUs available in the system.
 
 ### attack
 ```shell
-Usage of vegeta attack:
-  -body="": Requests body file
-  -cert="": x509 Certificate file
-  -connections=10000: Max open idle connections per target host
-  -duration=10s: Duration of the test
-  -header=: Request header
-  -keepalive=true: Use persistent connections
-  -laddr=0.0.0.0: Local IP address
-  -lazy=false: Read targets lazily
-  -output="stdout": Output file
-  -rate=50: Requests per second
-  -redirects=10: Number of redirects to follow. -1 will not follow but marks as success
-  -targets="stdin": Targets file
-  -timeout=30s: Requests timeout
-  -workers=10: Initial number of workers
+Usage of vegeta-mysql attack:
+  -body string
+        Requests body file
+  -dsn string
+        Data Source Name has a common format (default "password@protocol(address)/dbname?param=value")
+  -duration duration
+        Duration of the test (default 10s)
+  -maxIdleConns int
+        Max open idle connections per target host (default 10000)
+  -maxOpenConns int
+        Max open connections per target host (default 10000)
+  -output string
+        Output file (default "stdout")
+  -rate uint
+        Requests per second (default 50)
+  -timeout duration
+        Requests timeout (default 30s)
+  -workers uint
+        Initial number of workers (default 10)
 ```
 
 #### -body
-Specifies the file whose content will be set as the body of every
-request unless overridden per attack target, see `-targets`.
-
-#### -cert
-Specifies the x509 TLS certificate to be used with HTTPS requests.
-
-### -connections
-Specifies the maximum number of idle open connections per target host.
-
-#### -duration
-Specifies the amount of time to issue request to the targets.
-The internal concurrency structure's setup has this value as a variable.
-The actual run time of the test can be longer than specified due to the
-responses delay.
-
-#### -header
-Specifies a request header to be used in all targets defined, see `-targets`.
-You can specify as many as needed by repeating the flag.
-
-#### -keepalive
-Specifies whether to reuse TCP connections between HTTP requests.
-
-#### -laddr
-Specifies the local IP address to be used.
-
-#### -lazy
-Specifies whether to read the input targets lazily instead of eagerly.
-This allows streaming targets into the attack command and reduces memory
-footprint.
-The trade-off is one of added latency in each hit against the targets.
-
-#### -output
-Specifies the output file to which the binary results will be written
-to. Made to be piped to the report command input. Defaults to stdout.
-
-####  -rate
-Specifies the requests per second rate to issue against
-the targets. The actual request rate can vary slightly due to things like
-garbage collection, but overall it should stay very close to the specified.
-
-#### -redirects
-Specifies the max number of redirects followed on each request. The
-default is 10. When the value is -1, redirects are not followed but
-the response is marked as successful.
-
-#### -targets
-Specifies the attack targets in a line separated file, defaulting to stdin.
-The format should be as follows, combining any or all of the following:
-
-Simple targets
-```
-GET http://goku:9090/path/to/dragon?item=balls
-GET http://user:password@goku:9090/path/to
-HEAD http://goku:9090/path/to/success
-```
-
-Targets with custom headers
-```
-GET http://user:password@goku:9090/path/to
-X-Account-ID: 8675309
-
-DELETE http://goku:9090/path/to/remove
-Confirmation-Token: 90215
-Authorization: Token DEADBEEF
-```
-
-Targets with custom bodies
-```
-POST http://goku:9090/things
-@/path/to/newthing.json
-
-PATCH http://goku:9090/thing/71988591
-@/path/to/thing-71988591.json
-```
-
-Targets with custom bodies and headers
-```
-POST http://goku:9090/things
-X-Account-ID: 99
-@/path/to/newthing.json
-```
-
+sql text.
 
 #### -timeout
 Specifies the timeout for each request. The default is 0 which disables

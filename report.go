@@ -8,7 +8,7 @@ import (
 	"os/signal"
 	"strings"
 
-	vegeta "github.com/masahide/vegeta/lib"
+	vegeta "github.com/masahide/vegeta-mysql/lib"
 )
 
 func reportCmd() command {
