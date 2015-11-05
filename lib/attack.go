@@ -2,8 +2,6 @@ package vegeta
 
 import (
 	"database/sql"
-	"io"
-	"io/ioutil"
 	"log"
 	"strings"
 	"sync"
@@ -153,20 +151,17 @@ func (a *Attacker) hit(tr Targeter, tm time.Time) *Result {
 		return &res
 	}
 
-	in, err := io.Copy(ioutil.Discard, r.Body)
-	if err != nil {
-		return &res
-	}
-	res.BytesIn = uint64(in)
+	res.BytesIn = 0
+	res.BytesOut = 0
 
-	if req.ContentLength != -1 {
-		res.BytesOut = uint64(req.ContentLength)
-	}
+	err = r.Err()
 
-	if res.Code = uint16(r.StatusCode); res.Code < 200 || res.Code >= 400 {
-		res.Error = r.Status
+	if err == nil {
+		res.Code = 200
+	} else {
+		res.Code = 500
+		res.Error = err.Error()
 	}
-
 	return &res
 }
 

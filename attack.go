@@ -1,17 +1,12 @@
 package main
 
 import (
-	"bytes"
 	"errors"
 	"flag"
 	"fmt"
-	"io"
-	"io/ioutil"
 	"net"
-	"net/http"
 	"os"
 	"os/signal"
-	"strings"
 	"time"
 
 	vegeta "github.com/masahide/vegeta/lib"
@@ -21,10 +16,8 @@ func attackCmd() command {
 	fs := flag.NewFlagSet("vegeta attack", flag.ExitOnError)
 	opts := &attackOpts{}
 
-	fs.StringVar(&opts.targetsf, "targets", "stdin", "Targets file")
 	fs.StringVar(&opts.outputf, "output", "stdout", "Output file")
 	fs.StringVar(&opts.bodyf, "body", "", "Requests body file")
-	fs.BoolVar(&opts.lazy, "lazy", false, "Read targets lazily")
 	fs.DurationVar(&opts.duration, "duration", 10*time.Second, "Duration of the test")
 	fs.DurationVar(&opts.timeout, "timeout", vegeta.DefaultTimeout, "Requests timeout")
 	fs.Uint64Var(&opts.rate, "rate", 50, "Requests per second")
@@ -47,10 +40,8 @@ var (
 
 // attackOpts aggregates the attack function command options
 type attackOpts struct {
-	targetsf     string
 	outputf      string
 	bodyf        string
-	lazy         bool
 	duration     time.Duration
 	timeout      time.Duration
 	rate         uint64
@@ -71,34 +62,17 @@ func attack(opts *attackOpts) (err error) {
 		return errZeroDuration
 	}
 
-	files := map[string]io.Reader{}
-	for _, filename := range []string{opts.targetsf, opts.bodyf} {
-		if filename == "" {
-			continue
-		}
-		f, err := file(filename, false)
-		if err != nil {
-			return fmt.Errorf("error opening %s: %s", filename, err)
-		}
-		defer f.Close()
-		files[filename] = f
+	filename := opts.bodyf
+	f, err := file(filename, false)
+	if err != nil {
+		return fmt.Errorf("error opening %s: %s", filename, err)
 	}
-
-	var body []byte
-	if bodyf, ok := files[opts.bodyf]; ok {
-		if body, err = ioutil.ReadAll(bodyf); err != nil {
-			return fmt.Errorf("error reading %s: %s", opts.bodyf, err)
-		}
-	}
+	defer f.Close()
 
 	var (
-		tr  vegeta.Targeter
-		src = files[opts.targetsf]
-		//hdr = opts.headers.Header
+		tr vegeta.Targeter
 	)
-	if opts.lazy {
-		tr = vegeta.NewLazyTargeter(src, body)
-	} else if tr, err = vegeta.NewEagerTargeter(src, body); err != nil {
+	if tr, err = vegeta.NewEagerTargeter(f); err != nil {
 		return err
 	}
 
@@ -134,37 +108,6 @@ func attack(opts *attackOpts) (err error) {
 			}
 		}
 	}
-}
-
-// headers is the http.Header used in each target request
-// it is defined here to implement the flag.Value interface
-// in order to support multiple identical flags for request header
-// specification
-type headers struct{ http.Header }
-
-func (h headers) String() string {
-	buf := &bytes.Buffer{}
-	if err := h.Write(buf); err != nil {
-		return ""
-	}
-	return buf.String()
-}
-
-// Set implements the flag.Value interface for a map of HTTP Headers.
-func (h headers) Set(value string) error {
-	parts := strings.SplitN(value, ":", 2)
-	if len(parts) != 2 {
-		return fmt.Errorf("header '%s' has a wrong format", value)
-	}
-	key, val := strings.TrimSpace(parts[0]), strings.TrimSpace(parts[1])
-	if key == "" || val == "" {
-		return fmt.Errorf("header '%s' has a wrong format", value)
-	}
-	// Add key/value directly to the http.Header (map[string][]string).
-	// http.Header.Add() cannonicalizes keys but vegeta is used
-	// to test systems that require case-sensitive headers.
-	h.Header[key] = append(h.Header[key], val)
-	return nil
 }
 
 // localAddr implements the Flag interface for parsing net.IPAddr

@@ -1,4 +1,4 @@
-# Vegeta [![Build Status](https://secure.travis-ci.org/masahide/vegeta.png)](http://travis-ci.org/masahide/vegeta)
+# Vegeta-mysql [![Build Status](https://secure.travis-ci.org/masahide/vegeta-mysql.png)](http://travis-ci.org/masahide/vegeta-mysql)
 
 Vegeta is a versatile HTTP load testing tool built out of a need to drill
 HTTP services with a constant request rate.
