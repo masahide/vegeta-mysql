@@ -42,17 +42,18 @@ var (
 // NewAttacker returns a new Attacker with default options which are overridden
 // by the optionally provided opts.
 func NewAttacker(opts ...func(*Attacker)) *Attacker {
-	var err error
 	a := &Attacker{stopch: make(chan struct{}), workers: DefaultWorkers}
 	for _, opt := range opts {
 		opt(a)
 	}
+	var err error
 	a.cnn, err = sql.Open("mysql", a.dsn)
 	if err != nil {
 		log.Fatal(err)
 	}
 	a.cnn.SetMaxIdleConns(a.maxIdleConns)
 	a.cnn.SetMaxOpenConns(a.maxOpenConns)
+	a.cnn.Ping()
 	return a
 }
 
@@ -142,6 +143,18 @@ func (a *Attacker) hit(tr Targeter, tm time.Time) *Result {
 		return &res
 	}
 
+	/*
+		a.cnn, err = sql.Open("mysql", a.dsn)
+		if err != nil {
+			res.Code = 500
+			res.Error = err.Error()
+			return &res
+		}
+		defer a.cnn.Close()
+		a.cnn.SetMaxIdleConns(a.maxIdleConns)
+		a.cnn.SetMaxOpenConns(a.maxOpenConns)
+	*/
+	//log.Printf("query:%s", req)
 	r, err := a.cnn.Query(req)
 	if err != nil {
 		// ignore redirect errors when the user set --redirects=NoFollow
@@ -150,7 +163,18 @@ func (a *Attacker) hit(tr Targeter, tm time.Time) *Result {
 		}
 		return &res
 	}
-
+	defer r.Close()
+	num := 0
+	for r.Next() {
+		var id interface{}
+		num++
+		if err := r.Scan(&id); err != nil {
+			res.Code = 500
+			res.Error = err.Error()
+			return &res
+		}
+	}
+	//fmt.Fprintf(os.Stderr, "%d,", num)
 	res.BytesIn = 0
 	res.BytesOut = 0
 
