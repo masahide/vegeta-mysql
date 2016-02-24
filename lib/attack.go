@@ -2,6 +2,7 @@ package vegeta
 
 import (
 	"database/sql"
+	"fmt"
 	"log"
 	"strings"
 	"sync"
@@ -19,6 +20,7 @@ type Attacker struct {
 	redirects    int
 	maxIdleConns int
 	maxOpenConns int
+	persistent   bool
 	dsn          string
 }
 
@@ -33,6 +35,8 @@ const (
 	DefaultWorkers = 10
 	// NoFollow is the value when redirects are not followed but marked successful
 	NoFollow = -1
+	// Persistent connection
+	DefaultPersistent = true
 )
 
 var (
@@ -47,13 +51,15 @@ func NewAttacker(opts ...func(*Attacker)) *Attacker {
 		opt(a)
 	}
 	var err error
-	a.cnn, err = sql.Open("mysql", a.dsn)
-	if err != nil {
-		log.Fatal(err)
+	if a.persistent {
+		a.cnn, err = sql.Open("mysql", a.dsn)
+		if err != nil {
+			log.Fatal(err)
+		}
+		a.cnn.SetMaxIdleConns(a.maxIdleConns)
+		a.cnn.SetMaxOpenConns(a.maxOpenConns)
+		a.cnn.Ping()
 	}
-	a.cnn.SetMaxIdleConns(a.maxIdleConns)
-	a.cnn.SetMaxOpenConns(a.maxOpenConns)
-	a.cnn.Ping()
 	return a
 }
 
@@ -68,6 +74,9 @@ func Dsn(s string) func(*Attacker) {
 	return func(a *Attacker) { a.dsn = s }
 }
 
+func SetPersistent(n bool) func(*Attacker) {
+	return func(a *Attacker) { a.persistent = n }
+}
 func SetMaxIdleConns(n int) func(*Attacker) {
 	return func(a *Attacker) { a.maxIdleConns = n }
 }
@@ -155,7 +164,20 @@ func (a *Attacker) hit(tr Targeter, tm time.Time) *Result {
 		a.cnn.SetMaxOpenConns(a.maxOpenConns)
 	*/
 	//log.Printf("query:%s", req)
-	r, err := a.cnn.Query(req)
+
+	var r *sql.Rows
+	if a.persistent {
+		r, err = a.cnn.Query(req)
+	} else {
+		var cnn *sql.DB
+		cnn, err = sql.Open("mysql", a.dsn)
+		if err != nil {
+			res.Code = 500
+			res.Error = err.Error()
+			return &res
+		}
+		r, err = cnn.Query(req)
+	}
 	if err != nil {
 		// ignore redirect errors when the user set --redirects=NoFollow
 		if a.redirects == NoFollow && strings.Contains(err.Error(), "stopped after") {
@@ -166,13 +188,16 @@ func (a *Attacker) hit(tr Targeter, tm time.Time) *Result {
 	defer r.Close()
 	num := 0
 	for r.Next() {
-		var id interface{}
 		num++
-		if err := r.Scan(&id); err != nil {
-			res.Code = 500
-			res.Error = err.Error()
-			return &res
-		}
+		/*
+			var id interface{}
+				if err := r.Scan(&id); err != nil {
+					res.Code = 501
+					res.Error = err.Error()
+					res.Error = fmt.Sprintf("row scan err:%s: query:%s", err.Error(), req)
+					return &res
+				}
+		*/
 	}
 	//fmt.Fprintf(os.Stderr, "%d,", num)
 	res.BytesIn = 0
@@ -181,10 +206,14 @@ func (a *Attacker) hit(tr Targeter, tm time.Time) *Result {
 	err = r.Err()
 
 	if err == nil {
-		res.Code = 200
+		if num == 0 {
+			res.Code = 201
+		} else {
+			res.Code = 200
+		}
 	} else {
 		res.Code = 500
-		res.Error = err.Error()
+		res.Error = fmt.Sprintf("%s: query:%s", err.Error(), req)
 	}
 	return &res
 }

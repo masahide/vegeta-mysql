@@ -24,6 +24,7 @@ func attackCmd() command {
 	fs.Uint64Var(&opts.workers, "workers", vegeta.DefaultWorkers, "Initial number of workers")
 	fs.IntVar(&opts.maxOpenConns, "maxOpenConns", vegeta.DefaultConnections, "Max open connections per target host")
 	fs.IntVar(&opts.maxIdleConns, "maxIdleConns", vegeta.DefaultConnections, "Max open idle connections per target host")
+	fs.BoolVar(&opts.Persistent, "pconnect", vegeta.DefaultPersistent, "Persistent connection")
 	fs.StringVar(&opts.dsn, "dsn", "password@protocol(address)/dbname?param=value", "Data Source Name has a common format")
 
 	return command{fs, func(args []string) error {
@@ -48,6 +49,7 @@ type attackOpts struct {
 	workers      uint64
 	maxOpenConns int
 	maxIdleConns int
+	Persistent   bool
 	dsn          string
 }
 
