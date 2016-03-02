@@ -89,6 +89,7 @@ func attack(opts *attackOpts) (err error) {
 		vegeta.Dsn(opts.dsn),
 		vegeta.SetMaxIdleConns(opts.maxIdleConns),
 		vegeta.SetMaxOpenConns(opts.maxOpenConns),
+		vegeta.SetPersistent(opts.Persistent),
 	)
 
 	res := atk.Attack(tr, opts.rate, opts.duration)

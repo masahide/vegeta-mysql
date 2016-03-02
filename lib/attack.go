@@ -171,6 +171,9 @@ func (a *Attacker) hit(tr Targeter, tm time.Time) *Result {
 	} else {
 		var cnn *sql.DB
 		cnn, err = sql.Open("mysql", a.dsn)
+		cnn.SetMaxIdleConns(0)
+		cnn.SetMaxOpenConns(1)
+		cnn.SetConnMaxLifetime(1 * time.Nanosecond)
 		if err != nil {
 			res.Code = 500
 			res.Error = err.Error()
